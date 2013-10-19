@@ -40,6 +40,7 @@ private:
     bool                        bRefreshList;
     bool                        bDoWriteChip;
     bool                        bKeyF1down;
+    bool                        bTextureComplete;
     
 	void						resetReader();
     void                        processTag(RFID_Tag* tag);
@@ -75,8 +76,7 @@ void BetaLayoutRFIDApp::mouseDown( MouseEvent event )
 
 void BetaLayoutRFIDApp::update()
 {
-	// Update FPS
-	mFrameRate = getAverageFps();
+    
 	reader.update();
     	
     if(bRefreshList){
@@ -140,7 +140,6 @@ void BetaLayoutRFIDApp::keyUp( KeyEvent event )
 
 void BetaLayoutRFIDApp::reset(){
     reader.reset();
-    refreshParameterList();
 }
 
 
