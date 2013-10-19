@@ -8,7 +8,6 @@
 #include "cinder/gl/Texture.h"
 #include "cinder/utilities.h"
 
-#include "BetaLayout_RFID_Messe.h"
 #include "RFID_SimpleReader.h"
 #include "RFID_Tag.h"
 
@@ -35,37 +34,13 @@ private:
     
 	RFID_SimpleReader           reader;
 	
-	float						mFrameRate;
-	std::vector<std::string>	mSerialConnections;
-	std::vector<std::string>	*mMeshTitles;
-	int32_t						mMeshIndex;
-	int32_t						mTagIndexCurrent;
-	int32_t						mTagIndex;
 	gl::Texture					mTextTexture;
 	Vec2f						mSize;
 	Font						mFont;
-	bool						bTextureComplete;
     bool                        bRefreshList;
-    bool                        bHasRFIDTags;
     bool                        bDoWriteChip;
     bool                        bKeyF1down;
-	vector<string>				mTagDescriptionList;
-	map<string,char>            mTagDescriptionMap;
-	map<char,int>               mTagDescriptionMapIDReverse;
-    int                         mTagListLength;
     
-    string                      mChipTagName;
-    bool                        mChipTagStandMurata;
-    bool                        mChipTagStandNXP;
-    bool                        mChipTagStandBeta;
-	vector<string>				mChipTagComingFromList;
-    int                         mChipTagComingFromID;
-    
-    string                      mCurrentChipID;
-    
-    
-    void                        refreshParameterList();
-	void						toggleContiniousRead();
 	void						resetReader();
     void                        processTag(RFID_Tag* tag);
 	void						writeTagData();
@@ -89,7 +64,7 @@ void BetaLayoutRFIDApp::setup()
 	mSize = Vec2f( 800, 600 );
 	bTextureComplete = false;
     bRefreshList = true;
-    bHasRFIDTags = false;
+//    bHasRFIDTags = false;
     bDoWriteChip = false;
     bKeyF1down = false;
 }
@@ -104,13 +79,6 @@ void BetaLayoutRFIDApp::update()
 	mFrameRate = getAverageFps();
 	reader.update();
     	
-//	if(mTagIndexCurrent != mTagIndex){
-//		mTagIndex = mTagIndexCurrent;
-//		RFIDListChange();
-//	}
-    
-    //    string txt = mRFIDMesse.getAllTagsInfoString();
-    //    string txt = reader.getAllTagsInfoString();
     if(bRefreshList){
         string txt = "SIMPLE READER : \n\n\n";
         if(bDoWriteChip) txt += "WRITING DATA\n\n\n";
@@ -178,18 +146,8 @@ void BetaLayoutRFIDApp::reset(){
 
 void BetaLayoutRFIDApp::RFIDListChange()
 {
-    
-    refreshParameterList();
-	bRefreshList = true;
-    
+	bRefreshList = true;    
 }
-
-void BetaLayoutRFIDApp::refreshParameterList(){
-
-//    console() << "=========================" << std::endl << "RFID LIST UPDATE:" << std::endl <<     reader.getAllTagsInfoString() << "=========================" << std::endl;
-    
-}
-
 
 void BetaLayoutRFIDApp::writeTagData(){
     

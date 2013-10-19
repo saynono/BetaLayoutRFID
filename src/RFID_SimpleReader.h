@@ -143,13 +143,6 @@ public:
 	
 	boost::signals2::signal<void(void)> sRFIDListChanged;
 	
-	int                     currentState;
-	string                  mReaderStatusString;
-	map<string,RFID_Tag>    tagsMap;
-    vector<string>          mTagsID;
-	bool                    isContiniousReading;
-	bool                    bRemoveOldChips;
-	float                   mRemovalTimeSinceLastRefresh;
 	
 private:
 
@@ -161,6 +154,14 @@ private:
 	map<int,string> rfidReturnValues;
 	
 	RFID_Tag*		currentTagDataRequest;
+    
+	int                     currentState;
+	string                  mReaderStatusString;
+	map<string,RFID_Tag>    tagsMap;
+    vector<string>          mTagsID;
+	bool                    isContiniousReading;
+	bool                    bRemoveOldChips;
+	float                   mRemovalTimeSinceLastRefresh;
 	
 	int heartBeatCounter;
     double mConnectCounter;
@@ -181,7 +182,6 @@ private:
 	void checkCommand();
 	
 	int getMessageCommand(int value);
-//	vector<int> getMessageValues(vector<char> message);
 	void getMessageValues(const vector<char>&message, vector<int>* values );
 	void checkRFID_Tag(const string& hexTag, const vector<int>& tagValues);
 	
