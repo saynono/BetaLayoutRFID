@@ -28,30 +28,33 @@ class RFID_Tag{
 	
 public:
 	
-	void setup(string tag, vector<int> values, int tagSize){
-		for (int i=0; i<tagSize; i++) {
-			idValues.push_back(values[i]);
+	void setup(string tag, const vector<int>& hexValues){
+		for (int i=0; i<hexValues.size(); i++) {
+			idValues.push_back(hexValues[i]);
 		}
 		rfid_id = tag;
 //		data = "";
-		counter = 0;
-		timeStampFirst = second_clock::universal_time(); 
-		timeStampLast = second_clock::universal_time();
-//		console() << "NEW RFID_Tag : " << boost::posix_time::second_clock::universal_time() << std::endl;
+		timeStampFirst = App::get()->getElapsedSeconds();
+		timeStampLast = timeStampFirst;
+        doRevalidate = true;
+		console() << "NEW RFID_Tag : " << boost::posix_time::second_clock::universal_time() << std::endl;
 	}
 	
 	void update(){
-		counter++;
-		timeStampLast = second_clock::universal_time();
+		timeStampLast = App::get()->getElapsedSeconds();
+        age = timeStampLast - timeStampFirst;
 	}
 	
 	vector<int> idValues;
 	string		rfid_id;
 	int			counter;
-	ptime		timeStampFirst;
-	ptime		timeStampLast;
+	double		timeStampFirst;
+	double		timeStampLast;
+	double		age;
 //	string		data;
     vector<int> data;
+    string      dataString;
+    bool        doRevalidate;
 	
 };
 

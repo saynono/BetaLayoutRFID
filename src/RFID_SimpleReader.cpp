@@ -9,6 +9,9 @@
 
 #include "RFID_SimpleReader.h"
 
+static int READER_MSG_LENGTH_POS            = 7;
+static int READER_MSG_START_POS            = 9;
+
 RFID_SimpleReader::~RFID_SimpleReader(){
 	if(isContiniousReading) toggleContiniousRead();
 }
@@ -81,19 +84,19 @@ void RFID_SimpleReader::setup(){
 	isConnected = false;
 	isContiniousReading = false;
 	
-    mConnectCounter = 0;
+    mConnectCounter = App::get()->getElapsedSeconds();
+    mHeartbeatLast = 0;
 	heartBeatCounter = 0;
 	currentState = -1;
 	mReaderStatusString = "N/A";
     bRemoveOldChips = true;
-    mRemovalTimeSinceLastRefresh = 20.f;
-    
+    mRemovalTimeSinceLastRefresh = 10.f;
     reconnectToDevice();
 	
 }
 
 void RFID_SimpleReader::reconnectToDevice(){
-    mConnectCounter = 0;
+    mConnectCounter = App::get()->getElapsedSeconds();
 	// print the devices
 	scanSerialForSerialDevices();
 	try {
@@ -107,20 +110,27 @@ void RFID_SimpleReader::reconnectToDevice(){
 		return;
 	}
 	isConnected = true;
-	int durHeartBeat = 500;
-	int vals[] = {0x01, 0xff&(durHeartBeat>>8), 0xff&durHeartBeat};
+//	int durHeartBeat = 500;
+	int vals[] = {HEARTBEAT_ON, 0xff&(mHeartbeatIntervalms>>8), 0xff&mHeartbeatIntervalms};
 	sendCommand( SET_HEARTBEAT , vals , 3);
-}
+} 
 
 void RFID_SimpleReader::update(){
+    
+    double t = App::get()->getElapsedSeconds();
 	if(!isConnected){
-        mConnectCounter++;
-        console() << "mConnectCounter : " << mConnectCounter << std::endl;
-        if(mConnectCounter > 100) reconnectToDevice();
-      return;  
+        if(t-mConnectCounter > 10) reconnectToDevice();
+      return;
     }
+    
+    if( isConnected && t-mHeartbeatLast > (mHeartbeatIntervalms/1000.0) * 1.5f){
+        console() << " missing a heartbeat! " << serial.getDevice().getName() << std::endl;
+//        isConnected = false;
+    }
+    
 	// clear accumulated contact messages in buffer
 	readSerial();
+    removeOldEntries();
 }
 
 void RFID_SimpleReader::reset(){
@@ -143,22 +153,28 @@ void RFID_SimpleReader::toggleContiniousRead(){
 void RFID_SimpleReader::removeOldEntries(){
     
     if(!bRemoveOldChips) return;
-    ptime timeCurrent = second_clock::universal_time();
+    double timeCurrent = App::get()->getElapsedSeconds();
 
     RFID_Tag* tag;
-    vector<string> deleteKeys;
-    map<string,RFID_Tag >::iterator it;
-    for ( it=tagsMap.begin() ; it != tagsMap.end(); it++ ){
+//    vector<string> deleteKeys;
+    map<string,RFID_Tag >::iterator it = tagsMap.begin();
+    while (it != tagsMap.end()) {
+//    for ( it=tagsMap.begin() ; it != tagsMap.end(); it++ ){
         tag = & (*it).second;
-        time_duration age = timeCurrent - tag->timeStampLast;
-        if(age.seconds() > mRemovalTimeSinceLastRefresh) deleteKeys.push_back(tag->rfid_id);
+        double dead = timeCurrent - tag->timeStampLast;
+        if(dead > mRemovalTimeSinceLastRefresh){
+            it = tagsMap.erase( it );
+            //deleteKeys.push_back(tag->rfid_id);
+        }else{
+            ++it;
+        }
     }
     
-    for(int i=0;i<deleteKeys.size();i++){
+//    for(int i=0;i<deleteKeys.size();i++){
 //        console() << "REMOVE TAG " << deleteKeys[i] << std::endl;
-        tagsMap.erase(deleteKeys[i]);
-    }
-    deleteKeys.clear();
+//        tagsMap.erase(deleteKeys[i]);
+//    }
+//    deleteKeys.clear();
 
 }
 
@@ -183,7 +199,8 @@ void RFID_SimpleReader::processMessage(){
 	
     
 	int msgCommand = getMessageCommand((messageIn[4]<<8)+messageIn[5]);
-	vector<int> values = getMessageValues(messageIn);
+	vector<int> values;
+    getMessageValues(messageIn,&values);
     
 	switch(msgCommand){
 		case GET_CURRENT_STATE_COMMON:
@@ -203,6 +220,8 @@ void RFID_SimpleReader::processMessage(){
 //			}
 			heartBeatCounter++;
 			heartBeatCounter %= 60;
+            mHeartbeatLast = App::get()->getElapsedSeconds();
+
 			break;
 		case INVENTORY_SINGLE_FUNC:
 			processInventorySingle(values);
@@ -275,45 +294,59 @@ void RFID_SimpleReader::processState(vector<int> values){
 }
 
 void RFID_SimpleReader::processTagDataInfo(vector<int> values){
+//    console() << " RFID_SimpleReader::processTagDataInfo ----> ["<<values.size()<<"] ";
+//    for(int i=0;i<values.size();i++){
+//        console() << " " << values[i];
+//    }
+//    console() << " " << std::endl;
+    
 	if(values[0] == RFE_RET_SUCCESS){
         currentTagDataRequest->data.clear();
         int len = values.size();
-        int offset = 0;
-        string retStr = "DATA : ";
+//        console() << "======> ";
+        string retStr = "";
 		for(int j=2;j<len;j++){
-            if(offset%9==0){
-                retStr += "    BANK";
-                retStr += toString((int)(offset/9));
-                retStr += " : ";
-            }   
             currentTagDataRequest->data.push_back(values[j]);
-            char val[4];
-            sprintf(val,"%02X ",values[j]); 
-            retStr += val;
-            offset++;
+            retStr += (char)values[j];
+//            console() << " " << values[j];
         }
-//        printf("%s\n",retStr.c_str());
+//        console() << " ||"<< std::endl;
+        currentTagDataRequest->dataString = retStr;
 	}else{
 		console() << "READ_ERROR : " << rfidReturnValues[values[0]] << "\n";
 	}	
 }
 
-void RFID_SimpleReader::processInventorySingle(vector<int> values){
-    removeOldEntries();
-	int idCount = values.at(1);
+void RFID_SimpleReader::processInventorySingle(const vector<int>& values){
+    
+//    console() << "  ----> ["<<values.size()<<"] ";
+//    for(int i=0;i<values.size();i++){
+//        console() << " " << values[i];
+//    }
+//    console() << " " << std::endl;
+    
+	int tagsCount = values.at(1);
 	int packetIdCount = values.at(1);
-	if(idCount>0){
-		values.erase (values.begin(),values.begin()+3);
-		for (int i=0; i<idCount; i++) {
-			int tagSize = values.at(2);
-			if(values.size() > tagSize){
-				values.erase (values.begin(),values.begin()+1 + 2);
-				checkRFID_Tag(values,tagSize);
-				values.erase (values.begin(),values.begin()+tagSize);
-			}else{
-			}
-		}
-	}	
+    
+    vector<string> tags;
+    char buffer [2];
+	if(tagsCount>0){
+        for(int i=4;i<values.size();i++){
+            int val;
+            string hexTag = "";
+            int tagSize = values[i+1];
+            vector<int> tagValues;
+            i+=2;
+            for(int j=0;j<tagSize;j++){
+                tagValues.push_back(values[i]);
+                val = values[i];
+                sprintf (buffer, "%02X",values[i]);
+                hexTag += buffer;
+                i++;
+            }
+            checkRFID_Tag(hexTag,tagValues);
+        }
+	}
     mTagsID.clear();
 	RFID_Tag* tag;
 	map<string,RFID_Tag >::iterator it;
@@ -324,44 +357,43 @@ void RFID_SimpleReader::processInventorySingle(vector<int> values){
 	sRFIDListChanged();
 }
 
-void RFID_SimpleReader::processInventoryCyclic(vector<int> values){
-	printf("processInventoryCyclic RAW  "); printMessage(values);
-	if(values.size() == 0) return;
-	int idCount = values.at(0);
-	int packetIdCount = values.at(0);
-	if(idCount>0){
-		values.erase (values.begin(),values.begin()+1);
-		for (int i=0; i<idCount; i++) {
-			int tagSize = values.at(0);
-			if(values.size() > tagSize){
-				values.erase (values.begin(),values.begin()+1);
-				checkRFID_Tag(values,tagSize);
-				values.erase (values.begin(),values.begin()+tagSize);
-			}else{
-			}
-		}
-	}	
+void RFID_SimpleReader::processInventoryCyclic(const vector<int>& values){
+	console() << "processInventoryCyclic RAW  still to do!"; printMessage(values);
+//	if(values.size() == 0) return;
+//	int idCount = values.at(0);
+//	int packetIdCount = values.at(0);
+//    vector<string> tags;
+//	if(idCount>0){
+//		values.erase (values.begin(),values.begin()+1);
+//		for (int i=0; i<idCount; i++) {
+//			int tagSize = values.at(0);
+//			if(values.size() > tagSize){
+//				values.erase (values.begin(),values.begin()+1);
+//				checkRFID_Tag(values,tagSize);
+//				values.erase (values.begin(),values.begin()+tagSize);
+//			}else{
+//			}
+//		}
+//	}
 //	checkRFID_Tag(values,values.size());
-	sRFIDListChanged();
+//	sRFIDListChanged();
 }
 
 
-void RFID_SimpleReader::checkRFID_Tag(vector<int> values, int tagSize){
-	
-	string tagHex = convertToHexString(values,tagSize);    
-	if(tagsMap.count(tagHex)){
+void RFID_SimpleReader::checkRFID_Tag(const string& hexTag, const vector<int>& tagValues){
+//    console() << "CHECK TAG : " << hexTag << std::endl;
+	if(tagsMap.count(hexTag)){
 //		printf("TAG EXISTS ALREADY : %s\n",tagHex.c_str());
-        if(tagsMap[tagHex].data.size() == 0){
-            readEntireTagData(&tagsMap[tagHex]);
+        if(tagsMap[hexTag].doRevalidate){
+            readEntireTagData(&tagsMap[hexTag]);
         }
-		tagsMap[tagHex].update();
+		tagsMap[hexTag].update();
 	}else{
 //		printf("TAG IS NEW\n");
-		RFID_Tag tag;		
-		tagsMap[tagHex] = tag;
-		tagsMap[tagHex].setup(tagHex,values,tagSize);
-//		readTagData(&tagsMap[tagHex]);
-        readEntireTagData(&tagsMap[tagHex]);
+		RFID_Tag tag;
+		tagsMap[hexTag] = tag;
+		tagsMap[hexTag].setup(hexTag,tagValues);
+        readEntireTagData(&tagsMap[hexTag]);
 	}
 }
 
@@ -379,20 +411,19 @@ int RFID_SimpleReader::getMessageCommand(int value) {
 	return -1;
 }
 
-vector<int> RFID_SimpleReader::getMessageValues(vector<char> message){
+void RFID_SimpleReader::getMessageValues(const vector<char>&message, vector<int>* values ){
         
-	int amount = message[7];
+	int amount = message[READER_MSG_LENGTH_POS];
     if(message.size()-10 != amount){
         printf("|ERROR| Reading RAW  "); printMessage(messageIn);
         console() << "|ERROR| Something fishy here!!! is: " << (message.size()-9) << "  should be: " << amount << endl;
         printf("|ERROR| RFID_SimpleReader::getMessageValues  "); printMessage(message);	
         amount = message.size()-10;
     }
-	vector<int> values;
+    values->clear();
 	for (int i=0; i<amount; i++) {
-		values.push_back( 0xff & messageIn.at(i+9) );
+		values->push_back( 0xff & messageIn.at(i+READER_MSG_START_POS) );
 	}
-	return values;
 }
 
 
@@ -414,6 +445,10 @@ bool RFID_SimpleReader::validateCheckSum(int value) {
 
 void RFID_SimpleReader::getCurrentState(){
 	sendCommand(GET_CURRENT_STATE_COMMON);
+}
+
+vector<string> RFID_SimpleReader::getTagIDs(){
+    return mTagsID;
 }
 
 RFID_Tag* RFID_SimpleReader::getTag(string rfid_id){
@@ -527,30 +562,17 @@ void RFID_SimpleReader::readTagData(RFID_Tag* tag){
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 void RFID_SimpleReader::writeTagData(RFID_Tag* tag,string str){
-    
-    console() << " || RFID_SimpleReader::writeTagData : " << str << endl;
     writeTagDataBank(tag,str,0);
-//    return;
-//    int lenData = (int)str.size();
-////    lenData = 16;
-//    int bankCounter = 0;
-//    for(int i=0;i<lenData;i+=8){
-//        string data = str.substr(i,8);
-//        writeTagDataBank(tag,data,bankCounter);
-//        bankCounter++;
-//    }
 }
 
 void RFID_SimpleReader::writeTagDataBank(RFID_Tag* tag,string str, int bank){
-    //    str = "jojo";
-    
     bank = bank+BANK_USER_MEMORY_OFFSET;
-    console() << " || RFID_SimpleReader::writeTagDataBank " << bank << " : " << str << endl;
-
+//    console() << " || RFID_SimpleReader::writeTagDataBank " << bank << " : " << str << endl;
+    tag->doRevalidate = true;
 	int lenTagHex = tag->idValues.size();
-//	int lenData = min(8,(int)str.size());
 	int lenData = (int)str.size();
-	int lenTot = 9 + lenTagHex + lenData;
+    int dataLenTot = (int)RFID_MAX_DATA_LENGTH;
+	int lenTot = 9 + lenTagHex + dataLenTot;
 	int send[lenTot];
 	int pos = 0;
 	
@@ -575,11 +597,14 @@ void RFID_SimpleReader::writeTagDataBank(RFID_Tag* tag,string str, int bank){
 	send[pos++] = 0;
 	
 	// bytesCount			= databytecound	, 1b
-	send[pos++] = lenData;
+	send[pos++] = dataLenTot;
 	
 	// data				= 0f3f9319....	data as char array
 	for (int i=0; i<lenData; i++) {
 		send[pos++] = 0xff & str.at(i);
+	}
+	for (;pos<lenTot;) {
+		send[pos++] = ' ';
 	}
 	
 	sendCommand(WRITE_TO_TAG_FUNC, send, lenTot);
@@ -593,11 +618,17 @@ void RFID_SimpleReader::writeTagDataBank(RFID_Tag* tag,string str, int bank){
 
 
 void RFID_SimpleReader::scanSerialForSerialDevices(){
-	const vector<Serial::Device> &devices( Serial::getDevices() );
-	for( vector<Serial::Device>::const_iterator deviceIt = devices.begin(); deviceIt != devices.end(); ++deviceIt ) {
-		console() << "Device: " << deviceIt->getName() << endl;
-		connectedSerialDevices.push_back(deviceIt->getName());
-	}
+    connectedSerialDevices.clear();
+    const vector<Serial::Device> devicesNew = Serial::getDevices(true);
+    vector<Serial::Device>::const_iterator it = devicesNew.begin();
+    for(;it != devicesNew.end();++it){
+        console() << "Device: " << (*it).getName() << endl;
+    }
+//	const vector<Serial::Device> &devices( Serial::getDevices() );
+//	for( vector<Serial::Device>::const_iterator deviceIt = devices.begin(); deviceIt != devices.end(); ++deviceIt ) {
+//		console() << "Device: " << deviceIt->getName() << endl;
+//		connectedSerialDevices.push_back(deviceIt->getName());
+//	}
 }
 
 
@@ -641,7 +672,7 @@ void RFID_SimpleReader::sendCommandRaw(vector<char> bytes) {
 	for(int i=1;i<bytes.size();i++){
 		cs ^= bytes[i];
 	}
-	if(bytes[4] == 0x50 && bytes[5] == 0x04) printf("Sending RAW => %s  \n",convertToHexString(bytes,bytes.size()).c_str());
+//	if(bytes[4] == 0x50 && bytes[5] == 0x04) printf("Sending RAW => %s  \n",convertToHexString(bytes,bytes.size()).c_str());
 	bytes.push_back(cs);
     
 	try {
@@ -663,7 +694,8 @@ void RFID_SimpleReader::sendCommandRaw(vector<char> bytes) {
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-string RFID_SimpleReader::convertToHexString(vector<int> message, int len){
+string RFID_SimpleReader::convertToHexString(const vector<int>& message, int len){
+    console() << std::endl << "===========================================> " << message.size() << std::endl;
 	char buffer [2];
 	string hexStr = "";
 	for(int i=0;i<len;i++){
@@ -674,7 +706,7 @@ string RFID_SimpleReader::convertToHexString(vector<int> message, int len){
 	return hexStr;
 }
 
-string RFID_SimpleReader::convertToHexString(vector<char> message, int len){
+string RFID_SimpleReader::convertToHexString(const vector<char>& message, int len){
 	char buffer [2];
 	string hexStr = "";
 	for(int i=0;i<len;i++){
@@ -686,16 +718,16 @@ string RFID_SimpleReader::convertToHexString(vector<char> message, int len){
 }
 
 
-void RFID_SimpleReader::printMessage(vector<int> message){
+void RFID_SimpleReader::printMessage(const vector<int>& message){
 	if(message.size() == 0) return;
-	string str = convertToHexString(message,message.size());
-	printf("%s\n",str.c_str());
+	string str = convertToHexString( message, message.size() );
+	console() << " ====> " << str << std::endl;
 //	for(int i=1;i<message.size();i++){
 //		printf("-%02X",0xff&message[i]);
 //	}
 }
 
-void RFID_SimpleReader::printMessage(vector<char> message){
+void RFID_SimpleReader::printMessage(const vector<char>& message){
 	if(message.size() == 0) return;
 	printf("%02X",message[0]);
 	for(int i=1;i<message.size();i++){
@@ -716,22 +748,20 @@ string RFID_SimpleReader::getAllTagsInfoString(){
     if(tagsMap.size() > 0){
 		map<string,RFID_Tag >::iterator it2;
 		for ( it2=tagsMap.begin() ; it2 != tagsMap.end(); it2++ ){
-            RFID_Tag* tag = &((*it2).second);
-            str.append(getTagInfoString(tag));            
-            str.append("\n");
+//            RFID_Tag* tag = &((*it2).second);
+            str.append(getTagInfoString((*it2).second));
+            str.append("\n\n");
         }    
     }
     return str;
 }
 
-string RFID_SimpleReader::getTagInfoString(RFID_Tag* tag){
+string RFID_SimpleReader::getTagInfoString(const RFID_Tag& tag){
     string str = "TAG ID:";
-    str.append(tag->rfid_id);
-    str.append("  DATA_LEN:");
-    str.append( toString((int)tag->data.size()));
-    str.append("  COUNTER:");
-    str.append( toString(tag->counter));
-    
-    
+    str.append(tag.rfid_id);
+    str.append("  AGE:");
+    str.append( toString(tag.age));
+    str.append("  DATA:");
+    str.append( tag.dataString);
     return str;
 }

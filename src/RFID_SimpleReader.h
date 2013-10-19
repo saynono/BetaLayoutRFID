@@ -27,10 +27,10 @@ using namespace ci::app;
 using namespace std;
 
 #define BANK_USER_MEMORY_OFFSET 11;
+#define RFID_MAX_DATA_LENGTH    64;
 
 class RFID_SimpleReader{
 public:
-
 
 	enum RFID_COMMANDS
 	{
@@ -81,16 +81,23 @@ public:
 		STATUS_REG_CHANGED_INTERRUPT	= 0x9004,
 		BOOT_UP_FINISHED_INTERRUPT		= 0x9005,
 		NOTIFICATION_INTERRUPT			= 0x9006,
-				
+        
 	};
 	
+    enum HEARTBEAT
+    {
+        HEARTBEAT_OFF                   = 0x00,
+        HEARTBEAT_ON                    = 0x01,
+        HEARTBEAT_DUPLEX_ON             = 0x02
+    };
+    
 	enum CURRENT_READER_STATE
 	{
-		RFE_STATE_IDLE = 0x00,
-		RFE_STATE_REBOOTING = 0x01, 
-		RFE_STATE_SCANNING = 0x10, 
-		RFE_STATE_WRITING = 0x11, 
-		RFE_STATE_READING = 0x12,
+		RFE_STATE_IDLE                  = 0x00,
+		RFE_STATE_REBOOTING             = 0x01,
+		RFE_STATE_SCANNING              = 0x10,
+		RFE_STATE_WRITING               = 0x11,
+		RFE_STATE_READING               = 0x12,
 	};	
 	
 	
@@ -107,7 +114,8 @@ public:
 		RFE_RET_TMI_MEM_LOCKED					= 0xA2, 
 		RFE_RET_TMI_INSUFFICIENT_POWER			= 0xA3, 
 		RFE_RET_TMI_WRONG_PASSWORD				= 0xA4
-	};	
+	};
+    
 	
 	~RFID_SimpleReader();
 	void setup();
@@ -121,13 +129,14 @@ public:
 	void toggleContiniousRead();
 	
 	RFID_Tag* getTag(string rfid_id);
+	vector<string> getTagIDs();
     void readEntireTagData(RFID_Tag* tag);
 	void readTagData(RFID_Tag* tag);
 	void writeTagData(RFID_Tag* tag, string str);
     void writeTagDataBank(RFID_Tag* tag,string str, int bank=0);
     
     string getAllTagsInfoString();
-    string getTagInfoString(RFID_Tag* tag);
+    string getTagInfoString(const RFID_Tag& tag);
 
 	
 	void reset();
@@ -154,7 +163,10 @@ private:
 	RFID_Tag*		currentTagDataRequest;
 	
 	int heartBeatCounter;
-    int mConnectCounter;
+    double mConnectCounter;
+    double mHeartbeatLast;
+    int mHeartbeatIntervalms = 500;
+
 	
     void reconnectToDevice();
     void removeOldEntries();
@@ -163,15 +175,15 @@ private:
 	void processMessage();
 	void processState(vector<int> values);
 	void processTagDataInfo(vector<int> values);
-	void processInventorySingle(vector<int> values);
-	void processInventoryCyclic(vector<int> values);
+	void processInventorySingle(const vector<int>& values);
+	void processInventoryCyclic(const vector<int>& values);
 			
 	void checkCommand();
 	
 	int getMessageCommand(int value);
-	vector<int> getMessageValues(vector<char> message);
-	
-	void checkRFID_Tag(vector<int> values, int tagSize);
+//	vector<int> getMessageValues(vector<char> message);
+	void getMessageValues(const vector<char>&message, vector<int>* values );
+	void checkRFID_Tag(const string& hexTag, const vector<int>& tagValues);
 	
 	void sendCommand(int p);
 	void sendCommand(int p, int v);
@@ -179,11 +191,11 @@ private:
 	void sendCommandRaw(vector<char> bytes);
 	
 	
-	string convertToHexString(vector<int> message, int len);
-	string convertToHexString(vector<char> message, int len);
+	string convertToHexString(const vector<int>& message, int len);
+	string convertToHexString(const vector<char>& message, int len);
 	
-	void printMessage(vector<int> message);
-	void printMessage(vector<char> message);
+	void printMessage(const vector<int>& message);
+	void printMessage(const vector<char>& message);
 	
 	
 };

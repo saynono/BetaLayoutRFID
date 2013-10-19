@@ -17,7 +17,6 @@
 		5323E6B60EAFCA7E003A9687 /* QTKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5323E6B50EAFCA7E003A9687 /* QTKit.framework */; };
 		8D11072F0486CEB800E47090 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		AADD8FDA607C40FEA2737E53 /* CinderApp.icns in Resources */ = {isa = PBXBuildFile; fileRef = 6BDAE46462BE4E959309A743 /* CinderApp.icns */; };
-		FFF06C8C17F741D000D1BC2D /* BetaLayout_RFID_Messe.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FFF06C8617F741B600D1BC2D /* BetaLayout_RFID_Messe.cpp */; };
 		FFF06C8D17F741D700D1BC2D /* RFID_SimpleReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FFF06C8817F741B600D1BC2D /* RFID_SimpleReader.cpp */; };
 		FFF06C8E17F741DB00D1BC2D /* RFID_Tag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FFF06C8A17F741B600D1BC2D /* RFID_Tag.cpp */; };
 /* End PBXBuildFile section */
@@ -39,8 +38,6 @@
 		8D1107320486CEB800E47090 /* BetaLayoutRFID.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BetaLayoutRFID.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFCDB50540284435A0BE868D /* Resources.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Resources.h; path = ../include/Resources.h; sourceTree = "<group>"; };
 		E8E263D9F4604B289BC49B00 /* BetaLayoutRFIDApp.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.cpp; name = BetaLayoutRFIDApp.cpp; path = ../src/BetaLayoutRFIDApp.cpp; sourceTree = "<group>"; };
-		FFF06C8617F741B600D1BC2D /* BetaLayout_RFID_Messe.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = BetaLayout_RFID_Messe.cpp; path = ../src/BetaLayout_RFID_Messe.cpp; sourceTree = "<group>"; };
-		FFF06C8717F741B600D1BC2D /* BetaLayout_RFID_Messe.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BetaLayout_RFID_Messe.h; path = ../src/BetaLayout_RFID_Messe.h; sourceTree = "<group>"; };
 		FFF06C8817F741B600D1BC2D /* RFID_SimpleReader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = RFID_SimpleReader.cpp; path = ../src/RFID_SimpleReader.cpp; sourceTree = "<group>"; };
 		FFF06C8917F741B600D1BC2D /* RFID_SimpleReader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = RFID_SimpleReader.h; path = ../src/RFID_SimpleReader.h; sourceTree = "<group>"; };
 		FFF06C8A17F741B600D1BC2D /* RFID_Tag.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = RFID_Tag.cpp; path = ../src/RFID_Tag.cpp; sourceTree = "<group>"; };
@@ -76,8 +73,6 @@
 		080E96DDFE201D6D7F000001 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				FFF06C8617F741B600D1BC2D /* BetaLayout_RFID_Messe.cpp */,
-				FFF06C8717F741B600D1BC2D /* BetaLayout_RFID_Messe.h */,
 				FFF06C8817F741B600D1BC2D /* RFID_SimpleReader.cpp */,
 				FFF06C8917F741B600D1BC2D /* RFID_SimpleReader.h */,
 				FFF06C8A17F741B600D1BC2D /* RFID_Tag.cpp */,
@@ -221,7 +216,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4BFBC789A76647F48344EE75 /* BetaLayoutRFIDApp.cpp in Sources */,
-				FFF06C8C17F741D000D1BC2D /* BetaLayout_RFID_Messe.cpp in Sources */,
 				FFF06C8D17F741D700D1BC2D /* RFID_SimpleReader.cpp in Sources */,
 				FFF06C8E17F741DB00D1BC2D /* RFID_Tag.cpp in Sources */,
 			);
