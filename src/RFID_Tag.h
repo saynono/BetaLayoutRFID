@@ -37,7 +37,8 @@ public:
 		timeStampFirst = App::get()->getElapsedSeconds();
 		timeStampLast = timeStampFirst;
         doRevalidate = true;
-		console() << "NEW RFID_Tag : " << boost::posix_time::second_clock::universal_time() << std::endl;
+        isInitialised = false;
+//		console() << "NEW RFID_Tag : " << boost::posix_time::second_clock::universal_time() << std::endl;
 	}
 	
 	void update(){
@@ -55,6 +56,7 @@ public:
     vector<int> data;
     string      dataString;
     bool        doRevalidate;
+    bool        isInitialised;
 	
 };
 

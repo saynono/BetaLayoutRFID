@@ -124,6 +124,7 @@ public:
 	void scanSerialForSerialDevices();
 	vector<string> getSerialDeviceList();
 	
+    void setRemovalTime( float t );
 	void getCurrentState();
 	
 	void toggleContiniousRead();
@@ -180,10 +181,12 @@ private:
 	void processInventoryCyclic(const vector<int>& values);
 			
 	void checkCommand();
+    
+    void refreshTagIdsList();
 	
 	int getMessageCommand(int value);
 	void getMessageValues(const vector<char>&message, vector<int>* values );
-	void checkRFID_Tag(const string& hexTag, const vector<int>& tagValues);
+	bool checkRFID_Tag(const string& hexTag, const vector<int>& tagValues);
 	
 	void sendCommand(int p);
 	void sendCommand(int p, int v);

@@ -1,4 +1,4 @@
-/*
+    /*
  *  RFID-SimpleReader.cpp
  *  RFID-SimpleReader
  *
@@ -95,6 +95,10 @@ void RFID_SimpleReader::setup(){
 	
 }
 
+void RFID_SimpleReader::setRemovalTime( float t ){
+    mRemovalTimeSinceLastRefresh = t;
+}
+
 void RFID_SimpleReader::reconnectToDevice(){
     mConnectCounter = App::get()->getElapsedSeconds();
 	// print the devices
@@ -124,7 +128,7 @@ void RFID_SimpleReader::update(){
     }
     
     if( isConnected && t-mHeartbeatLast > (mHeartbeatIntervalms/1000.0) * 1.5f){
-        console() << " missing a heartbeat! " << serial.getDevice().getName() << std::endl;
+//        console() << " missing a heartbeat! " << serial.getDevice().getName() << std::endl;
 //        isConnected = false;
     }
     
@@ -154,7 +158,7 @@ void RFID_SimpleReader::removeOldEntries(){
     
     if(!bRemoveOldChips) return;
     double timeCurrent = App::get()->getElapsedSeconds();
-
+    bool listChanged = false;
     RFID_Tag* tag;
 //    vector<string> deleteKeys;
     map<string,RFID_Tag >::iterator it = tagsMap.begin();
@@ -164,10 +168,16 @@ void RFID_SimpleReader::removeOldEntries(){
         double dead = timeCurrent - tag->timeStampLast;
         if(dead > mRemovalTimeSinceLastRefresh){
             it = tagsMap.erase( it );
+            listChanged = true;
             //deleteKeys.push_back(tag->rfid_id);
         }else{
             ++it;
         }
+    }
+    
+    if(listChanged){
+        refreshTagIdsList();
+        sRFIDListChanged();
     }
     
 //    for(int i=0;i<deleteKeys.size();i++){
@@ -312,6 +322,9 @@ void RFID_SimpleReader::processTagDataInfo(vector<int> values){
         }
 //        console() << " ||"<< std::endl;
         currentTagDataRequest->dataString = retStr;
+        currentTagDataRequest->doRevalidate = false;
+        currentTagDataRequest->isInitialised = true;
+        sRFIDListChanged();
 	}else{
 		console() << "READ_ERROR : " << rfidReturnValues[values[0]] << "\n";
 	}	
@@ -327,7 +340,7 @@ void RFID_SimpleReader::processInventorySingle(const vector<int>& values){
     
 	int tagsCount = values.at(1);
 	int packetIdCount = values.at(1);
-    
+    bool listChanged = false;
     vector<string> tags;
     char buffer [2];
 	if(tagsCount>0){
@@ -344,18 +357,25 @@ void RFID_SimpleReader::processInventorySingle(const vector<int>& values){
                 hexTag += buffer;
                 i++;
             }
-            checkRFID_Tag(hexTag,tagValues);
+            bool addedNew = checkRFID_Tag(hexTag,tagValues);
+            if(addedNew){
+                listChanged = true;
+            }
         }
 	}
-    mTagsID.clear();
-	RFID_Tag* tag;
-	map<string,RFID_Tag >::iterator it;
-	for ( it=tagsMap.begin() ; it != tagsMap.end(); it++ ){
-		tag = & (*it).second;
-		mTagsID.push_back(tag->rfid_id);
-	}
-	sRFIDListChanged();
+//    mTagsID.clear();
+//	RFID_Tag* tag;
+//	map<string,RFID_Tag >::iterator it;
+//	for ( it=tagsMap.begin() ; it != tagsMap.end(); it++ ){
+//		tag = & (*it).second;
+//		mTagsID.push_back(tag->rfid_id);
+//	}
+	if(listChanged){
+        refreshTagIdsList();
+        sRFIDListChanged();
+    }
 }
+
 
 void RFID_SimpleReader::processInventoryCyclic(const vector<int>& values){
 	console() << "processInventoryCyclic RAW  still to do!"; printMessage(values);
@@ -380,20 +400,23 @@ void RFID_SimpleReader::processInventoryCyclic(const vector<int>& values){
 }
 
 
-void RFID_SimpleReader::checkRFID_Tag(const string& hexTag, const vector<int>& tagValues){
+bool RFID_SimpleReader::checkRFID_Tag(const string& hexTag, const vector<int>& tagValues){
 //    console() << "CHECK TAG : " << hexTag << std::endl;
 	if(tagsMap.count(hexTag)){
 //		printf("TAG EXISTS ALREADY : %s\n",tagHex.c_str());
+//        console() << "tagsMap[hexTag].doRevalidate < " << tagsMap[hexTag].doRevalidate << std::endl;
         if(tagsMap[hexTag].doRevalidate){
             readEntireTagData(&tagsMap[hexTag]);
         }
 		tagsMap[hexTag].update();
+        return false;
 	}else{
 //		printf("TAG IS NEW\n");
 		RFID_Tag tag;
 		tagsMap[hexTag] = tag;
 		tagsMap[hexTag].setup(hexTag,tagValues);
         readEntireTagData(&tagsMap[hexTag]);
+        return true;
 	}
 }
 
@@ -437,6 +460,16 @@ bool RFID_SimpleReader::validateCheckSum(int value) {
 	return cs == value;
 }
 
+
+void RFID_SimpleReader::refreshTagIdsList(){
+    mTagsID.clear();
+    RFID_Tag* tag;
+    map<string,RFID_Tag >::iterator it;
+    for ( it=tagsMap.begin() ; it != tagsMap.end(); it++ ){
+        tag = & (*it).second;
+        mTagsID.push_back(tag->rfid_id);
+    }
+}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //++++				GETTERS

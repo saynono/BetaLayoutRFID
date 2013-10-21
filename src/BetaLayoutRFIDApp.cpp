@@ -41,6 +41,7 @@ private:
     bool                        bDoWriteChip;
     bool                        bKeyF1down;
     bool                        bTextureComplete;
+    string                      mStringToChip;
     
 	void						resetReader();
     void                        processTag(RFID_Tag* tag);
@@ -53,12 +54,13 @@ void BetaLayoutRFIDApp::prepareSettings( Settings *settings )
 	settings->setResizable( true );
     settings->setTitle("BetaLayout RFID Reader");
     settings->setFrameRate(15);
+    mStringToChip = "nono!";
 }
 
 void BetaLayoutRFIDApp::setup()
 {
-    reader.setup();
     
+    reader.setup();
     reader.sRFIDListChanged.connect( boost::bind(&BetaLayoutRFIDApp::RFIDListChange, this) );
     
 	mFont = Font( "Arial", 12 );
@@ -113,21 +115,48 @@ void BetaLayoutRFIDApp::draw()
 
 void BetaLayoutRFIDApp::keyDown( KeyEvent event )
 {
+    int fKeyPressed = -1;
 	if(event.getCode() == KeyEvent::KEY_ESCAPE) quit();
     if(event.getCode() == KeyEvent::KEY_SPACE){
 //        reader.writeTagData( reader.getTag( reader.mTagsID[0] ) , "0123456789_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     }
     if(event.getCode() == KeyEvent::KEY_F1){
+        fKeyPressed = 1;
+    }else if(event.getCode() == KeyEvent::KEY_F2){
+        fKeyPressed = 2;
+    }else if(event.getCode() == KeyEvent::KEY_F3){
+        fKeyPressed = 3;
+    }else if(event.getCode() == KeyEvent::KEY_F4){
+        fKeyPressed = 4;
+    }
+
+    
+    if(fKeyPressed > 0){
+//        fKeyPressed = true;
         if(!bKeyF1down){
             bDoWriteChip = true;
+            mStringToChip = "CHIP_" + toString(fKeyPressed);
         }
-        bKeyF1down = true;
+        bKeyF1down = true;        
     }
+    
+    
 }
 
 void BetaLayoutRFIDApp::keyUp( KeyEvent event )
 {
+    bool fKeyReleased = false;
     if(event.getCode() == KeyEvent::KEY_F1){
+        fKeyReleased = true;
+    }else if(event.getCode() == KeyEvent::KEY_F2){
+        fKeyReleased = true;
+    }else if(event.getCode() == KeyEvent::KEY_F3){
+        fKeyReleased = true;
+    }else if(event.getCode() == KeyEvent::KEY_F4){
+        fKeyReleased = true;
+    }
+
+    if(fKeyReleased){
         bDoWriteChip = false;
         bKeyF1down = false;
     }
@@ -145,6 +174,7 @@ void BetaLayoutRFIDApp::reset(){
 
 void BetaLayoutRFIDApp::RFIDListChange()
 {
+    console() << "BetaLayoutRFIDApp::RFIDListChange" << std::endl;
 	bRefreshList = true;    
 }
 
@@ -153,7 +183,8 @@ void BetaLayoutRFIDApp::writeTagData(){
     vector<string> ids = reader.getTagIDs();
     for(int i=0;i<ids.size();i++){
         RFID_Tag* tag = reader.getTag(ids[i]);
-        reader.writeTagData(tag, "HALLO DU CHIPS!" );
+        reader.writeTagData(tag, mStringToChip );
+        console() << "WRITE TO TAG : " << mStringToChip << std::endl;
     }
 }
 
